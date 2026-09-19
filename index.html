@@ -33,6 +33,8 @@ body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;backgr
 
 /* ===== 模板折叠卡片 ===== */
 .tpl-item{background:#fff;border-radius:16px;margin-bottom:8px;box-shadow:0 3px 10px rgba(140,180,215,.1);border:1px solid #e4eef8;overflow:hidden;transition:.2s}
+.tpl-item.dragging{opacity:.4;transform:scale(.98)}
+.tpl-item.drag-over{border-color:#7fb3dd;border-style:dashed;border-width:2px}
 
 /* 折叠行 */
 .tpl-row{display:flex;align-items:center;gap:10px;padding:10px;cursor:pointer;transition:.15s}
@@ -220,7 +222,7 @@ body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;backgr
 
 <script>
 // ==================== 数据存储 ====================
-const STORE_KEY = 'outfit_app_data_v4';
+const STORE_KEY = 'outfit_app_data_v5';
 let data = {
   templates: { spring: [], summer: [], autumn: [], winter: [] },
   records: { top: [], pants: [], coat: [] }
@@ -259,10 +261,8 @@ function showToast(msg) {
 
 // ==================== 图片查看器 ====================
 function openViewer(src) {
-  const v = document.getElementById('viewer');
-  const img = document.getElementById('viewerImg');
-  img.src = src;
-  v.classList.add('on');
+  document.getElementById('viewerImg').src = src;
+  document.getElementById('viewer').classList.add('on');
 }
 function closeViewer() {
   document.getElementById('viewer').classList.remove('on');
@@ -287,8 +287,8 @@ document.querySelectorAll('.season-tab').forEach(tab => {
   });
 });
 
-// ==================== 模板功能（折叠行 + 展开） ====================
-let tplOpenState = {}; // 记录每个模板的展开状态
+// ==================== 模板功能 ====================
+let tplOpenState = {};
 
 function addTpl(season) {
   data.templates[season].push({ id: Date.now() + Math.random(), name: '', img: '' });
@@ -350,6 +350,7 @@ function renderTemplates(season) {
       </div>
     `;
   }).join('');
+  setupDragDropTpl();
 }
 
 function toggleTpl(season, id) {
@@ -364,7 +365,6 @@ function updateTplName(season, id, val) {
   if (item) {
     item.name = val;
     saveData();
-    // 更新折叠行的显示
     const el = document.querySelector(`.tpl-item[data-season="${season}"][data-id="${id}"] .tpl-mini-text`);
     if (el) {
       el.textContent = val || '点击展开查看模板...';
@@ -577,7 +577,7 @@ function toggleNowear(catKey, id) {
   }
 }
 
-// ==================== 长按拖拽排序 ====================
+// ==================== 拖拽排序：穿搭记录 ====================
 function setupDragDrop() {
   document.querySelectorAll('.rec-item').forEach(el => {
     let pressTimer = null;
@@ -620,7 +620,6 @@ function setupDragDrop() {
       reorderRecords(this.dataset.cat, draggingEl.dataset.id, this.dataset.id);
     });
     
-    // 移动端长按拖拽
     el.addEventListener('touchstart', function(e) {
       const target = e.target;
       if (target.closest('textarea') || target.closest('input') || 
@@ -679,6 +678,109 @@ function reorderRecords(catKey, fromId, toId) {
   arr.splice(toIdx, 0, moved);
   saveData();
   renderRecords();
+  showToast('顺序已调整');
+}
+
+// ==================== 拖拽排序：穿搭模板 ====================
+function setupDragDropTpl() {
+  document.querySelectorAll('.tpl-item').forEach(el => {
+    let pressTimer = null;
+    let isDragging = false;
+    
+    el.setAttribute('draggable', 'true');
+    
+    el.addEventListener('dragstart', function(e) {
+      isDragging = true;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+    });
+    
+    el.addEventListener('dragend', function() {
+      isDragging = false;
+      this.classList.remove('dragging');
+      document.querySelectorAll('.tpl-item').forEach(i => i.classList.remove('drag-over'));
+    });
+    
+    el.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (!isDragging) return;
+      const draggingEl = document.querySelector('.tpl-item.dragging');
+      if (draggingEl && draggingEl !== this && draggingEl.dataset.season === this.dataset.season) {
+        this.classList.add('drag-over');
+      }
+    });
+    
+    el.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+    
+    el.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      const draggingEl = document.querySelector('.tpl-item.dragging');
+      if (!draggingEl || draggingEl === this) return;
+      if (draggingEl.dataset.season !== this.dataset.season) return;
+      reorderTemplates(this.dataset.season, draggingEl.dataset.id, this.dataset.id);
+    });
+    
+    el.addEventListener('touchstart', function(e) {
+      const target = e.target;
+      if (target.closest('input') || target.closest('button') || 
+          target.closest('.tpl-big-img') || target.closest('.tpl-thumb') ||
+          target.closest('.up-label')) {
+        return;
+      }
+      
+      pressTimer = setTimeout(() => {
+        isDragging = true;
+        el.classList.add('dragging');
+        if (navigator.vibrate) navigator.vibrate(30);
+        showToast('拖动到目标位置可调整顺序');
+      }, 600);
+    }, { passive: true });
+    
+    el.addEventListener('touchmove', function(e) {
+      if (pressTimer && !isDragging) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      if (isDragging) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = elemBelow?.closest('.tpl-item');
+        document.querySelectorAll('.tpl-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== el && targetItem.dataset.season === el.dataset.season) {
+          targetItem.classList.add('drag-over');
+        }
+      }
+    }, { passive: false });
+    
+    el.addEventListener('touchend', function() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      if (isDragging) {
+        const targetItem = document.querySelector('.tpl-item.drag-over');
+        if (targetItem && targetItem !== el && targetItem.dataset.season === el.dataset.season) {
+          reorderTemplates(el.dataset.season, el.dataset.id, targetItem.dataset.id);
+        }
+        isDragging = false;
+        el.classList.remove('dragging');
+        document.querySelectorAll('.tpl-item').forEach(i => i.classList.remove('drag-over'));
+      }
+    });
+  });
+}
+
+function reorderTemplates(season, fromId, toId) {
+  const arr = data.templates[season];
+  const fromIdx = arr.findIndex(t => t.id == fromId);
+  const toIdx = arr.findIndex(t => t.id == toId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  saveData();
+  renderTemplates(season);
   showToast('顺序已调整');
 }
 

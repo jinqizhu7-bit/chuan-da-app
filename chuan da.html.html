@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>穿搭小程序</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#eef5fc;height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center}
+.app{width:100%;max-width:420px;height:100vh;max-height:900px;background:#f7fbff;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 60px rgba(120,160,200,.18);position:relative}
+
+/* 顶部 */
+.top{background:linear-gradient(135deg,#a8cce8,#7fb3dd);color:#fff;padding:16px 20px;flex-shrink:0}
+.top h1{font-size:1.25rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.top p{font-size:.72rem;opacity:.9;margin-top:4px}
+
+/* 主内容 */
+.main{flex:1;overflow-y:auto;padding:14px;padding-bottom:8px}
+.main::-webkit-scrollbar{width:0}
+.page{display:none}
+.page.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* 四季标签 */
+.season-tabs{display:flex;gap:8px;margin-bottom:14px}
+.season-tab{flex:1;text-align:center;padding:10px 6px;border-radius:14px;background:#fff;border:2px solid #dcebf7;font-size:.8rem;font-weight:600;color:#7a9ab8;cursor:pointer;transition:.2s}
+.season-tab.on{background:linear-gradient(135deg,#a8cce8,#7fb3dd);color:#fff;border-color:#7fb3dd;box-shadow:0 6px 16px rgba(127,179,221,.35)}
+.season-tab .em{display:block;font-size:1.2rem;margin-bottom:2px}
+
+/* 四季面板 */
+.season-panel{display:none}
+.season-panel.on{display:block}
+
+/* ===== 模板折叠卡片 ===== */
+.tpl-item{background:#fff;border-radius:16px;margin-bottom:8px;box-shadow:0 3px 10px rgba(140,180,215,.1);border:1px solid #e4eef8;overflow:hidden;transition:.2s}
+
+/* 折叠行 */
+.tpl-row{display:flex;align-items:center;gap:10px;padding:10px;cursor:pointer;transition:.15s}
+.tpl-row:active{background:#f4f9ff}
+.tpl-thumb{width:52px;height:52px;border-radius:12px;background:#f4f9ff;border:2px dashed #d8e6f2;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:1.2rem;color:#b8cfe0;cursor:pointer}
+.tpl-thumb img{width:100%;height:100%;object-fit:cover}
+.tpl-mini-text{flex:1;font-size:.82rem;color:#4a6a85;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpl-mini-text.placeholder{color:#b8cfe0;font-weight:400}
+.tpl-arrow{font-size:.7rem;color:#a8c8e0;transition:transform .25s;flex-shrink:0}
+.tpl-item.open .tpl-arrow{transform:rotate(90deg)}
+
+/* 展开内容 */
+.tpl-detail{max-height:0;overflow:hidden;transition:max-height .3s ease;border-top:1px solid transparent}
+.tpl-item.open .tpl-detail{max-height:800px;border-top-color:#e4eef8}
+.tpl-detail-inner{padding:12px}
+
+.tpl-detail-top{display:flex;gap:12px;align-items:flex-start}
+.tpl-big-img{width:100px;height:100px;border-radius:14px;background:#f4f9ff;border:2px dashed #d8e6f2;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;transition:.2s}
+.tpl-big-img:active{background:#e8f2fc}
+.tpl-big-img img{width:100%;height:100%;object-fit:cover}
+.tpl-big-img .ph{color:#b8cfe0;font-size:.65rem;text-align:center;line-height:1.5}
+.tpl-big-img .ph .ic{font-size:1.4rem;display:block;margin-bottom:2px}
+.tpl-big-img input{display:none}
+.tpl-detail-right{flex:1;display:flex;flex-direction:column;gap:8px}
+.tpl-text{width:100%;min-height:80px;border:1.5px solid #e4eef8;border-radius:12px;padding:10px;font-size:.8rem;color:#4a6a85;resize:none;font-family:inherit;outline:none;line-height:1.6;background:#fbfdff}
+.tpl-text:focus{border-color:#7fb3dd;background:#fff}
+.tpl-text::placeholder{color:#b8cfe0}
+
+.tpl-detail-actions{display:flex;justify-content:flex-end;margin-top:8px;gap:8px}
+.del-small{background:#fff0f0;color:#d9534f;border:1px solid #f5c8c8;border-radius:10px;padding:6px 14px;font-size:.72rem;font-weight:600;cursor:pointer}
+.del-small:active{background:#ffe0e0}
+
+/* 添加按钮 */
+.add-btn{width:100%;padding:12px;border-radius:14px;border:2px dashed #c8ddef;background:#fff;color:#7fb3dd;font-size:.85rem;font-weight:700;cursor:pointer;transition:.2s;margin-bottom:12px}
+.add-btn:active{background:#e8f2fc;border-color:#7fb3dd}
+
+/* 空状态 */
+.empty{text-align:center;padding:30px 20px;color:#b8cfe0;font-size:.8rem}
+.empty .ic{font-size:2.2rem;display:block;margin-bottom:6px;opacity:.6}
+
+/* ===== 穿搭记录 - 折叠分类 ===== */
+.cat-section{margin-bottom:12px}
+.cat-header{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 3px 12px rgba(140,180,215,.1);border:1px solid #e4eef8;cursor:pointer;transition:.2s;user-select:none}
+.cat-header:active{background:#f4f9ff}
+.cat-header .cat-title{display:flex;align-items:center;gap:10px;font-size:.92rem;font-weight:700;color:#4a6a85}
+.cat-header .cat-title .cat-icon{font-size:1.3rem}
+.cat-header .cat-count{font-size:.72rem;color:#7fb3dd;background:#eaf4fd;padding:3px 10px;border-radius:12px;font-weight:600}
+.cat-header .cat-arrow{font-size:.8rem;color:#a8c8e0;transition:transform .25s;margin-left:6px}
+.cat-header.open .cat-arrow{transform:rotate(90deg)}
+
+.cat-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.cat-body.open{max-height:8000px}
+.cat-inner{padding:10px 2px 2px 2px}
+
+/* 记录卡片（折叠时一行） */
+.rec-item{background:#fff;border-radius:16px;margin-bottom:8px;box-shadow:0 3px 10px rgba(140,180,215,.1);border:1px solid #e4eef8;overflow:hidden;transition:.2s}
+.rec-item.dragging{opacity:.4;transform:scale(.98)}
+.rec-item.drag-over{border-color:#7fb3dd;border-style:dashed;border-width:2px}
+
+.rec-row{display:flex;align-items:center;gap:10px;padding:10px;cursor:pointer;transition:.15s}
+.rec-row:active{background:#f4f9ff}
+.rec-thumb{width:52px;height:52px;border-radius:12px;background:#f4f9ff;border:2px dashed #d8e6f2;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:1.2rem;color:#b8cfe0;cursor:pointer}
+.rec-thumb img{width:100%;height:100%;object-fit:cover}
+.rec-mini-text{flex:1;font-size:.82rem;color:#4a6a85;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-mini-text.placeholder{color:#b8cfe0;font-weight:400}
+.rec-wash-mini{font-size:.68rem;padding:3px 8px;border-radius:10px;font-weight:600;flex-shrink:0}
+.rec-wash-mini.worn{background:#fff3e0;color:#e67e22}
+.rec-wash-mini.clean{background:#e8f5ec;color:#3d8f5c}
+.rec-wash-mini.nowear{background:#f0f0f0;color:#999}
+.rec-arrow{font-size:.7rem;color:#a8c8e0;transition:transform .25s;flex-shrink:0}
+.rec-item.open .rec-arrow{transform:rotate(90deg)}
+
+.rec-detail{max-height:0;overflow:hidden;transition:max-height .3s ease;border-top:1px solid transparent}
+.rec-item.open .rec-detail{max-height:600px;border-top-color:#e4eef8}
+.rec-detail-inner{padding:12px}
+
+.rec-detail-top{display:flex;gap:12px;align-items:flex-start}
+.rec-big-img{width:100px;height:100px;border-radius:14px;background:#f4f9ff;border:2px dashed #d8e6f2;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;transition:.2s}
+.rec-big-img:active{background:#e8f2fc}
+.rec-big-img img{width:100%;height:100%;object-fit:cover}
+.rec-big-img .ph{color:#b8cfe0;font-size:.65rem;text-align:center;line-height:1.5}
+.rec-big-img .ph .ic{font-size:1.4rem;display:block;margin-bottom:2px}
+.rec-big-img input{display:none}
+.rec-detail-right{flex:1;display:flex;flex-direction:column;gap:8px}
+
+.check-row{display:flex;gap:8px}
+.check-opt{flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;background:#f4f9ff;border-radius:12px;border:1.5px solid #e4eef8;cursor:pointer;transition:.2s;font-size:.74rem;color:#7a9ab8;font-weight:600}
+.check-opt:active{transform:scale(.97)}
+.check-opt .cbox{width:18px;height:18px;border-radius:6px;border:2px solid #c8ddef;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;flex-shrink:0;transition:.15s}
+.check-opt.active-worn{background:#fff3e0;border-color:#f5c68c}
+.check-opt.active-worn .cbox{background:#e67e22;border-color:#e67e22}
+.check-opt.active-worn{color:#b35e1b}
+.check-opt.active-nowear{background:#eef2f6;border-color:#c0c8d0}
+.check-opt.active-nowear .cbox{background:#8a9aad;border-color:#8a9aad}
+.check-opt.active-nowear{color:#5a6a7a}
+
+.rec-text{width:100%;min-height:60px;border:1.5px solid #e4eef8;border-radius:12px;padding:10px;font-size:.8rem;color:#4a6a85;resize:none;font-family:inherit;outline:none;line-height:1.6;background:#fbfdff}
+.rec-text:focus{border-color:#7fb3dd;background:#fff}
+.rec-text::placeholder{color:#b8cfe0}
+
+/* 底部导航 */
+.nav{display:flex;background:#fff;border-top:1px solid #e4eef8;padding:8px 0 10px;flex-shrink:0;box-shadow:0 -4px 16px rgba(140,180,215,.08)}
+.nav button{flex:1;border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:#b8cfe0;font-size:.68rem;font-weight:600;cursor:pointer;padding:6px 0;transition:.2s}
+.nav button .ni{font-size:1.4rem;line-height:1}
+.nav button.on{color:#7fb3dd}
+.nav button.on .ni{transform:scale(1.1)}
+
+/* 提示 */
+.toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(74,106,133,.9);color:#fff;padding:8px 20px;border-radius:20px;font-size:.78rem;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:99}
+.toast.show{opacity:1}
+
+/* ===== 图片查看器 ===== */
+.viewer{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+.viewer.on{display:flex}
+.viewer img{max-width:100%;max-height:80vh;object-fit:contain;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.viewer .close-btn{position:absolute;top:20px;right:20px;background:rgba(255,255,255,.2);color:#fff;border:none;width:40px;height:40px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.viewer .close-btn:active{background:rgba(255,255,255,.4)}
+.viewer .viewer-tip{color:#fff;font-size:.8rem;margin-top:14px;opacity:.6}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 顶部 -->
+  <div class="top">
+    <h1>👗 穿搭小程序</h1>
+    <p>记录每一件衣物的穿着与清洗 ✨</p>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="main" id="main">
+
+    <!-- ========== 板块1：穿搭模板 ========== -->
+    <div class="page on" id="p-tpl">
+      <div class="season-tabs">
+        <div class="season-tab on" data-season="spring"><span class="em">🌸</span>春</div>
+        <div class="season-tab" data-season="summer"><span class="em">☀️</span>夏</div>
+        <div class="season-tab" data-season="autumn"><span class="em">🍂</span>秋</div>
+        <div class="season-tab" data-season="winter"><span class="em">❄️</span>冬</div>
+      </div>
+
+      <div class="season-panel on" id="sp-spring">
+        <div id="list-spring"></div>
+        <button class="add-btn" onclick="addTpl('spring')">＋ 添加春季穿搭模板</button>
+      </div>
+      <div class="season-panel" id="sp-summer">
+        <div id="list-summer"></div>
+        <button class="add-btn" onclick="addTpl('summer')">＋ 添加夏季穿搭模板</button>
+      </div>
+      <div class="season-panel" id="sp-autumn">
+        <div id="list-autumn"></div>
+        <button class="add-btn" onclick="addTpl('autumn')">＋ 添加秋季穿搭模板</button>
+      </div>
+      <div class="season-panel" id="sp-winter">
+        <div id="list-winter"></div>
+        <button class="add-btn" onclick="addTpl('winter')">＋ 添加冬季穿搭模板</button>
+      </div>
+    </div>
+
+    <!-- ========== 板块2：穿搭记录 ========== -->
+    <div class="page" id="p-rec">
+      <div id="recContainer"></div>
+    </div>
+
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="nav">
+    <button class="on" data-p="tpl" onclick="switchPage('tpl')">
+      <span class="ni">👗</span>穿搭模板
+    </button>
+    <button data-p="rec" onclick="switchPage('rec')">
+      <span class="ni">📸</span>穿搭记录
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- 图片查看器 -->
+<div class="viewer" id="viewer" onclick="closeViewer()">
+  <button class="close-btn" onclick="closeViewer()">✕</button>
+  <img id="viewerImg" src="" alt="查看大图">
+  <div class="viewer-tip">点击任意位置关闭</div>
+</div>
+
+<script>
+// ==================== 数据存储 ====================
+const STORE_KEY = 'outfit_app_data_v4';
+let data = {
+  templates: { spring: [], summer: [], autumn: [], winter: [] },
+  records: { top: [], pants: [], coat: [] }
+};
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.templates) data.templates = parsed.templates;
+      if (parsed.records) {
+        if (Array.isArray(parsed.records)) {
+          data.records = { top: parsed.records, pants: [], coat: [] };
+        } else {
+          data.records = parsed.records;
+        }
+      }
+    }
+  } catch(e) { console.log('加载失败', e); }
+}
+function saveData() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  } catch(e) { console.log('保存失败', e); }
+}
+
+// ==================== 提示 ====================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+// ==================== 图片查看器 ====================
+function openViewer(src) {
+  const v = document.getElementById('viewer');
+  const img = document.getElementById('viewerImg');
+  img.src = src;
+  v.classList.add('on');
+}
+function closeViewer() {
+  document.getElementById('viewer').classList.remove('on');
+}
+
+// ==================== 页面切换 ====================
+function switchPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('on'));
+  document.getElementById('p-' + p).classList.add('on');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('on'));
+  document.querySelector(`.nav button[data-p="${p}"]`).classList.add('on');
+  document.getElementById('main').scrollTop = 0;
+}
+
+// ==================== 四季切换 ====================
+document.querySelectorAll('.season-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.season-tab').forEach(t => t.classList.remove('on'));
+    tab.classList.add('on');
+    document.querySelectorAll('.season-panel').forEach(p => p.classList.remove('on'));
+    document.getElementById('sp-' + tab.dataset.season).classList.add('on');
+  });
+});
+
+// ==================== 模板功能（折叠行 + 展开） ====================
+let tplOpenState = {}; // 记录每个模板的展开状态
+
+function addTpl(season) {
+  data.templates[season].push({ id: Date.now() + Math.random(), name: '', img: '' });
+  saveData();
+  renderTemplates(season);
+  showToast('已添加');
+}
+
+function deleteTpl(season, id) {
+  data.templates[season] = data.templates[season].filter(t => t.id !== id);
+  saveData();
+  renderTemplates(season);
+  showToast('已删除');
+}
+
+function renderTemplates(season) {
+  const list = document.getElementById('list-' + season);
+  const items = data.templates[season];
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty"><span class="ic">🌸</span>还没有模板，点击下方按钮添加吧</div>';
+    return;
+  }
+  list.innerHTML = items.map(item => {
+    const key = season + '_' + item.id;
+    const isOpen = tplOpenState[key] || false;
+    return `
+      <div class="tpl-item ${isOpen ? 'open' : ''}" data-id="${item.id}" data-season="${season}">
+        <div class="tpl-row" onclick="toggleTpl('${season}','${item.id}')">
+          <div class="tpl-thumb" onclick="event.stopPropagation();${item.img ? `openViewer('${item.img}')` : `pickTplImg('${season}','${item.id}')`}">
+            ${item.img ? `<img src="${item.img}" alt="">` : '📷'}
+          </div>
+          <div class="tpl-mini-text ${item.name ? '' : 'placeholder'}">
+            ${item.name || '点击展开查看模板...'}
+          </div>
+          <span class="tpl-arrow">▶</span>
+        </div>
+        <div class="tpl-detail">
+          <div class="tpl-detail-inner">
+            <div class="tpl-detail-top">
+              <div class="tpl-big-img" onclick="event.stopPropagation();${item.img ? `openViewer('${item.img}')` : `pickTplImg('${season}','${item.id}')`}">
+                ${item.img ? `<img src="${item.img}" alt="穿搭">` : `<div class="ph"><span class="ic">📷</span>点击上传</div>`}
+              </div>
+              <div class="tpl-detail-right">
+                <input class="up-label" placeholder="给这套穿搭起个名字..."
+                  onclick="event.stopPropagation()"
+                  value="${item.name || ''}"
+                  oninput="updateTplName('${season}','${item.id}',this.value)"
+                  style="width:100%;border:none;border-bottom:1.5px dashed #d8e6f2;font-size:.85rem;font-weight:600;color:#4a6a85;padding:6px 2px;outline:none;background:transparent;font-family:inherit">
+                <div style="font-size:.72rem;color:#b8cfe0;line-height:1.6">点击图片可查看大图</div>
+              </div>
+            </div>
+            <div class="tpl-detail-actions">
+              <button class="del-small" onclick="event.stopPropagation();deleteTpl('${season}','${item.id}')">删除</button>
+            </div>
+            <input type="file" accept="image/*" id="file-${season}-${item.id}"
+              onchange="handleTplImg(event,'${season}','${item.id}')">
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleTpl(season, id) {
+  const key = season + '_' + id;
+  tplOpenState[key] = !tplOpenState[key];
+  const el = document.querySelector(`.tpl-item[data-season="${season}"][data-id="${id}"]`);
+  if (el) el.classList.toggle('open', tplOpenState[key]);
+}
+
+function updateTplName(season, id, val) {
+  const item = data.templates[season].find(t => t.id == id);
+  if (item) {
+    item.name = val;
+    saveData();
+    // 更新折叠行的显示
+    const el = document.querySelector(`.tpl-item[data-season="${season}"][data-id="${id}"] .tpl-mini-text`);
+    if (el) {
+      el.textContent = val || '点击展开查看模板...';
+      el.classList.toggle('placeholder', !val);
+    }
+  }
+}
+function pickTplImg(season, id) {
+  document.getElementById(`file-${season}-${id}`).click();
+}
+function handleTplImg(e, season, id) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const item = data.templates[season].find(t => t.id == id);
+    if (item) {
+      item.img = ev.target.result;
+      saveData();
+      renderTemplates(season);
+      showToast('图片已上传 ✅');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ==================== 穿搭记录 ====================
+const CATS = [
+  { key: 'top', name: '上衣', icon: '👕' },
+  { key: 'pants', name: '裤子', icon: '👖' },
+  { key: 'coat', name: '外套', icon: '🧥' }
+];
+
+let catOpenState = { top: false, pants: false, coat: false };
+let itemOpenState = {};
+
+function renderRecords() {
+  const container = document.getElementById('recContainer');
+  container.innerHTML = CATS.map(cat => {
+    const items = data.records[cat.key] || [];
+    const isOpen = catOpenState[cat.key];
+    return `
+      <div class="cat-section" data-cat="${cat.key}">
+        <div class="cat-header ${isOpen ? 'open' : ''}" onclick="toggleCat('${cat.key}')">
+          <div class="cat-title">
+            <span class="cat-icon">${cat.icon}</span>
+            <span>${cat.name}</span>
+          </div>
+          <div style="display:flex;align-items:center">
+            <span class="cat-count">${items.length}件</span>
+            <span class="cat-arrow">▶</span>
+          </div>
+        </div>
+        <div class="cat-body ${isOpen ? 'open' : ''}">
+          <div class="cat-inner" id="inner-${cat.key}">
+            ${items.length === 0
+              ? `<div class="empty"><span class="ic">${cat.icon}</span>还没有${cat.name}记录</div>`
+              : items.map(item => renderRecItem(cat.key, item)).join('')}
+            <button class="add-btn" onclick="addRecord('${cat.key}')" style="margin-top:4px">＋ 添加${cat.name}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  setupDragDrop();
+}
+
+function renderRecItem(catKey, rec) {
+  const itemKey = catKey + '_' + rec.id;
+  const isOpen = itemOpenState[itemKey] || false;
+  
+  let statusHtml = '';
+  if (rec.worn) statusHtml = `<span class="rec-wash-mini worn">穿了未洗</span>`;
+  else if (rec.nowear) statusHtml = `<span class="rec-wash-mini nowear">未穿</span>`;
+  else statusHtml = `<span class="rec-wash-mini clean">已洗</span>`;
+  
+  return `
+    <div class="rec-item ${isOpen ? 'open' : ''}" data-id="${rec.id}" data-cat="${catKey}">
+      <div class="rec-row" onclick="toggleItem('${catKey}','${rec.id}')">
+        <div class="rec-thumb" onclick="event.stopPropagation();${rec.img ? `openViewer('${rec.img}')` : `pickRecImg('${catKey}','${rec.id}')`}">
+          ${rec.img ? `<img src="${rec.img}" alt="">` : '📷'}
+        </div>
+        <div class="rec-mini-text ${rec.text ? '' : 'placeholder'}">
+          ${rec.text || '点击展开记录...'}
+        </div>
+        ${statusHtml}
+        <span class="rec-arrow">▶</span>
+      </div>
+      <div class="rec-detail">
+        <div class="rec-detail-inner">
+          <div class="rec-detail-top">
+            <div class="rec-big-img" onclick="event.stopPropagation();${rec.img ? `openViewer('${rec.img}')` : `pickRecImg('${catKey}','${rec.id}')`}">
+              ${rec.img ? `<img src="${rec.img}" alt="衣物">` : `<div class="ph"><span class="ic">📷</span>上传<br>图片</div>`}
+            </div>
+            <div class="rec-detail-right">
+              <div class="check-row">
+                <div class="check-opt ${rec.worn ? 'active-worn' : ''}" onclick="event.stopPropagation();toggleWorn('${catKey}','${rec.id}')">
+                  <div class="cbox">✓</div>
+                  <span>穿了未洗</span>
+                </div>
+                <div class="check-opt ${rec.nowear ? 'active-nowear' : ''}" onclick="event.stopPropagation();toggleNowear('${catKey}','${rec.id}')">
+                  <div class="cbox">✓</div>
+                  <span>未穿</span>
+                </div>
+              </div>
+              <textarea class="rec-text" placeholder="记录这件衣物的穿着情况..."
+                onclick="event.stopPropagation()"
+                oninput="updateRecText('${catKey}','${rec.id}',this.value)">${rec.text || ''}</textarea>
+            </div>
+          </div>
+          <div class="rec-detail-actions">
+            <button class="del-small" onclick="event.stopPropagation();deleteRecord('${catKey}','${rec.id}')">删除</button>
+          </div>
+          <input type="file" accept="image/*" id="recfile-${catKey}-${rec.id}"
+            onchange="handleRecImg(event,'${catKey}','${rec.id}')">
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCat(catKey) {
+  catOpenState[catKey] = !catOpenState[catKey];
+  const section = document.querySelector(`.cat-section[data-cat="${catKey}"]`);
+  const header = section.querySelector('.cat-header');
+  const body = section.querySelector('.cat-body');
+  header.classList.toggle('open', catOpenState[catKey]);
+  body.classList.toggle('open', catOpenState[catKey]);
+}
+
+function toggleItem(catKey, id) {
+  const key = catKey + '_' + id;
+  itemOpenState[key] = !itemOpenState[key];
+  const el = document.querySelector(`.rec-item[data-cat="${catKey}"][data-id="${id}"]`);
+  if (el) el.classList.toggle('open', itemOpenState[key]);
+}
+
+function addRecord(catKey) {
+  if (!data.records[catKey]) data.records[catKey] = [];
+  data.records[catKey].unshift({
+    id: Date.now() + Math.random(),
+    img: '',
+    text: '',
+    worn: false,
+    nowear: false
+  });
+  catOpenState[catKey] = true;
+  saveData();
+  renderRecords();
+  showToast('已添加');
+}
+
+function deleteRecord(catKey, id) {
+  data.records[catKey] = data.records[catKey].filter(r => r.id != id);
+  saveData();
+  renderRecords();
+  showToast('已删除');
+}
+
+function pickRecImg(catKey, id) {
+  document.getElementById(`recfile-${catKey}-${id}`).click();
+}
+
+function handleRecImg(e, catKey, id) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const rec = data.records[catKey].find(r => r.id == id);
+    if (rec) {
+      rec.img = ev.target.result;
+      saveData();
+      renderRecords();
+      showToast('图片已上传 ✅');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateRecText(catKey, id, val) {
+  const rec = data.records[catKey].find(r => r.id == id);
+  if (rec) {
+    rec.text = val;
+    saveData();
+    const el = document.querySelector(`.rec-item[data-cat="${catKey}"][data-id="${id}"] .rec-mini-text`);
+    if (el) {
+      el.textContent = val || '点击展开记录...';
+      el.classList.toggle('placeholder', !val);
+    }
+  }
+}
+
+function toggleWorn(catKey, id) {
+  const rec = data.records[catKey].find(r => r.id == id);
+  if (rec) {
+    rec.worn = !rec.worn;
+    if (rec.worn) rec.nowear = false;
+    saveData();
+    renderRecords();
+  }
+}
+
+function toggleNowear(catKey, id) {
+  const rec = data.records[catKey].find(r => r.id == id);
+  if (rec) {
+    rec.nowear = !rec.nowear;
+    if (rec.nowear) rec.worn = false;
+    saveData();
+    renderRecords();
+  }
+}
+
+// ==================== 长按拖拽排序 ====================
+function setupDragDrop() {
+  document.querySelectorAll('.rec-item').forEach(el => {
+    let pressTimer = null;
+    let isDragging = false;
+    
+    el.setAttribute('draggable', 'true');
+    
+    el.addEventListener('dragstart', function(e) {
+      isDragging = true;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id);
+    });
+    
+    el.addEventListener('dragend', function() {
+      isDragging = false;
+      this.classList.remove('dragging');
+      document.querySelectorAll('.rec-item').forEach(i => i.classList.remove('drag-over'));
+    });
+    
+    el.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (!isDragging) return;
+      const draggingEl = document.querySelector('.rec-item.dragging');
+      if (draggingEl && draggingEl !== this && draggingEl.dataset.cat === this.dataset.cat) {
+        this.classList.add('drag-over');
+      }
+    });
+    
+    el.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+    
+    el.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      const draggingEl = document.querySelector('.rec-item.dragging');
+      if (!draggingEl || draggingEl === this) return;
+      if (draggingEl.dataset.cat !== this.dataset.cat) return;
+      reorderRecords(this.dataset.cat, draggingEl.dataset.id, this.dataset.id);
+    });
+    
+    // 移动端长按拖拽
+    el.addEventListener('touchstart', function(e) {
+      const target = e.target;
+      if (target.closest('textarea') || target.closest('input') || 
+          target.closest('button') || target.closest('.rec-big-img') ||
+          target.closest('.check-opt') || target.closest('.rec-text') ||
+          target.closest('.rec-thumb')) {
+        return;
+      }
+      
+      pressTimer = setTimeout(() => {
+        isDragging = true;
+        el.classList.add('dragging');
+        if (navigator.vibrate) navigator.vibrate(30);
+        showToast('拖动到目标位置可调整顺序');
+      }, 600);
+    }, { passive: true });
+    
+    el.addEventListener('touchmove', function(e) {
+      if (pressTimer && !isDragging) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      if (isDragging) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = elemBelow?.closest('.rec-item');
+        document.querySelectorAll('.rec-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== el && targetItem.dataset.cat === el.dataset.cat) {
+          targetItem.classList.add('drag-over');
+        }
+      }
+    }, { passive: false });
+    
+    el.addEventListener('touchend', function() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      if (isDragging) {
+        const targetItem = document.querySelector('.rec-item.drag-over');
+        if (targetItem && targetItem !== el && targetItem.dataset.cat === el.dataset.cat) {
+          reorderRecords(el.dataset.cat, el.dataset.id, targetItem.dataset.id);
+        }
+        isDragging = false;
+        el.classList.remove('dragging');
+        document.querySelectorAll('.rec-item').forEach(i => i.classList.remove('drag-over'));
+      }
+    });
+  });
+}
+
+function reorderRecords(catKey, fromId, toId) {
+  const arr = data.records[catKey];
+  const fromIdx = arr.findIndex(r => r.id == fromId);
+  const toIdx = arr.findIndex(r => r.id == toId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  saveData();
+  renderRecords();
+  showToast('顺序已调整');
+}
+
+// ==================== 初始化 ====================
+loadData();
+renderTemplates('spring');
+renderTemplates('summer');
+renderTemplates('autumn');
+renderTemplates('winter');
+renderRecords();
+</script>
+</body>
+</html>

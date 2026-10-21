@@ -8,7 +8,16 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#eef5fc;height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center}
-.app{width:100%;max-width:420px;height:100vh;max-height:900px;background:#f7fbff;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 60px rgba(120,160,200,.18);position:relative}
+
+/* 密码锁界面样式 */
+#lockScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:#f7fbff;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+#lockScreen h2{color:#4a6a85;margin-bottom:20px;font-size:1.2rem;}
+#lockScreen input{width:80%;max-width:300px;padding:14px;border-radius:14px;border:2px solid #d8e6f2;font-size:1.1rem;text-align:center;outline:none;margin-bottom:16px;background:#fff;letter-spacing:2px;}
+#lockScreen input:focus{border-color:#7fb3dd;}
+#lockScreen button{width:80%;max-width:300px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#a8cce8,#7fb3dd);color:#fff;font-size:1.1rem;font-weight:700;cursor:pointer;}
+#lockScreen p{color:#d9534f;font-size:.8rem;margin-top:10px;display:none;}
+
+.app{display:none;width:100%;max-width:420px;height:100vh;max-height:900px;background:#f7fbff;border-radius:32px;overflow:hidden;flex-direction:column;box-shadow:0 30px 60px rgba(120,160,200,.18);position:relative}
 .top{background:linear-gradient(135deg,#a8cce8,#7fb3dd);color:#fff;padding:16px 20px;flex-shrink:0;position:relative}
 .top h1{font-size:1.25rem;font-weight:700;display:flex;align-items:center;gap:8px}
 .top p{font-size:.72rem;opacity:.9;margin-top:4px}
@@ -122,11 +131,21 @@ body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;backgr
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- 密码锁界面 -->
+<div id="lockScreen">
+  <h2>🔒 请输入访问密码</h2>
+  <input type="password" id="pwdInput" placeholder="请输入密码" onkeydown="if(event.key==='Enter') checkPwd()">
+  <button onclick="checkPwd()">进入小程序</button>
+  <p id="pwdError">密码错误，请重试！</p>
+</div>
+
+<!-- 主界面（默认隐藏） -->
+<div class="app" id="mainApp">
   <div class="top">
     <h1>👗 穿搭小程序</h1>
     <p>数据已开启云端同步 ☁️</p>
-    <div class="sync-status" id="syncStatus">加载中...</div>
+    <div class="sync-status" id="syncStatus">未连接</div>
   </div>
 
   <div class="main" id="main">
@@ -159,10 +178,35 @@ body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;backgr
   <button class="close-btn" onclick="closeViewer()">✕</button>
   <img id="viewerImg" src="" alt="查看大图">
   <div class="viewer-tip">点击任意位置关闭</div>
-</div><script>
+</div>
+
+<script>
+// ==================== 密码验证逻辑 ====================
+// ⚠️ 在这里修改你的密码！比如改成 'my123'
+const APP_PASSWORD = '2004'; 
+
+function checkPwd() {
+  const val = document.getElementById('pwdInput').value;
+  if (val === APP_PASSWORD) {
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    // 密码正确后，开始加载云端数据
+    loadFromCloud();
+  } else {
+    document.getElementById('pwdError').style.display = 'block';
+    document.getElementById('pwdInput').value = '';
+  }
+}
+// 如果之前在这个浏览器里输过密码（刷新时不用重复输入）
+if(sessionStorage.getItem('auth') === 'ok') {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  setTimeout(loadFromCloud, 100);
+}
+
+// ==================== 初始化 Supabase ====================
 const SUPABASE_URL = 'https://kjvgcywwfevnxnvyqiox.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_VFT1MgolGMhb7Tm-4uYVgA_UO7oWbLJ';
-// 修复：将变量名由 supabase 改为 db，避免与官方库冲突
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const syncStatusEl = document.getElementById('syncStatus');
@@ -186,6 +230,7 @@ async function loadFromCloud() {
     }
     syncStatusEl.textContent = '已同步';
     renderAll();
+    sessionStorage.setItem('auth', 'ok'); // 记录已登录状态
   } catch (err) { syncStatusEl.textContent = '网络错误'; }
 }
 
@@ -230,7 +275,9 @@ document.querySelectorAll('.season-tab').forEach(tab => {
   });
 });
 
-function renderAll() { ['spring', 'summer', 'autumn', 'winter'].forEach(renderTemplates); renderRecords(); }let tplOpenState = {};
+function renderAll() { ['spring', 'summer', 'autumn', 'winter'].forEach(renderTemplates); renderRecords(); }
+
+let tplOpenState = {};
 function renderTemplates(season) {
   const list = document.getElementById('list-' + season);
   const items = data.templates[season] || [];
@@ -423,9 +470,6 @@ function setupDragDropTpl() {
   });
 }
 function reorderTemplates(season, fromId, toId) { const arr = data.templates[season]; const fromIdx = arr.findIndex(t => t.id == fromId); const toIdx = arr.findIndex(t => t.id == toId); if (fromIdx < 0 || toIdx < 0) return; const [moved] = arr.splice(fromIdx, 1); arr.splice(toIdx, 0, moved); saveToCloud(); renderTemplates(season); showToast('顺序已调整'); }
-
-// 启动
-loadFromCloud();
 </script>
 </body>
 </html>

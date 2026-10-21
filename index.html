@@ -159,9 +159,7 @@ body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;backgr
   <button class="close-btn" onclick="closeViewer()">✕</button>
   <img id="viewerImg" src="" alt="查看大图">
   <div class="viewer-tip">点击任意位置关闭</div>
-</div>
-
-<script>
+</div><script>
 const SUPABASE_URL = 'https://kjvgcywwfevnxnvyqiox.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_VFT1MgolGMhb7Tm-4uYVgA_UO7oWbLJ';
 // 修复：将变量名由 supabase 改为 db，避免与官方库冲突
@@ -232,9 +230,7 @@ document.querySelectorAll('.season-tab').forEach(tab => {
   });
 });
 
-function renderAll() { ['spring', 'summer', 'autumn', 'winter'].forEach(renderTemplates); renderRecords(); }
-
-let tplOpenState = {};
+function renderAll() { ['spring', 'summer', 'autumn', 'winter'].forEach(renderTemplates); renderRecords(); }let tplOpenState = {};
 function renderTemplates(season) {
   const list = document.getElementById('list-' + season);
   const items = data.templates[season] || [];
